@@ -12,6 +12,7 @@
 #include <QIODevice>
 #include <QByteArray>
 #include <QList>
+#include <QProgressDialog>
 
 #include <libheif/heif.h>
 
@@ -396,14 +397,47 @@ int main(int argc, char* argv[])
     int convertedCount = 0;
     int failedCount = 0;
     int skippedCount = 0;
+    bool canceled = false;
 
     QString report;
 
-    for (const QString& filePath : selectedFiles) {
+    QProgressDialog progressDialog(
+        "Preparing conversion...",
+        "Cancel",
+        0,
+        selectedFiles.size()
+    );
+
+    progressDialog.setWindowTitle("HEIC Image Converter");
+    progressDialog.setWindowModality(Qt::ApplicationModal);
+    progressDialog.setMinimumDuration(0);
+    progressDialog.setValue(0);
+
+    for (int index = 0; index < selectedFiles.size(); ++index) {
+        const QString& filePath = selectedFiles[index];
+
+        QFileInfo fileInfo(filePath);
+
+        progressDialog.setLabelText(
+            "Converting " + QString::number(index + 1) +
+            " of " + QString::number(selectedFiles.size()) +
+            "\n\n" + fileInfo.fileName()
+        );
+
+        progressDialog.setValue(index);
+
+        if (progressDialog.wasCanceled()) {
+            canceled = true;
+            report += "Conversion canceled by user.\n\n";
+            break;
+        }
+
         if (!isHeicFile(filePath)) {
             skippedCount++;
+
             report += "Skipped unsupported file:\n";
             report += filePath + "\n\n";
+
             continue;
         }
 
@@ -419,19 +453,23 @@ int main(int argc, char* argv[])
 
         if (success) {
             convertedCount++;
+
             report += "Converted:\n";
             report += filePath + "\n";
             report += "→ " + outputPath + "\n\n";
         } else {
             failedCount++;
+
             report += "Failed:\n";
             report += filePath + "\n";
             report += "Reason: " + QString::fromStdString(errorMessage) + "\n\n";
         }
     }
 
+    progressDialog.setValue(selectedFiles.size());
+
     QString summary =
-        "Conversion complete.\n\n"
+        QString(canceled ? "Conversion canceled.\n\n" : "Conversion complete.\n\n") +
         "Output format: " + outputFormat.label + "\n"
         "Converted: " + QString::number(convertedCount) + "\n"
         "Failed: " + QString::number(failedCount) + "\n"
