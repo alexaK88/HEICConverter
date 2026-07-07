@@ -411,7 +411,12 @@ int main(int argc, char* argv[])
     progressDialog.setWindowTitle("HEIC Image Converter");
     progressDialog.setWindowModality(Qt::ApplicationModal);
     progressDialog.setMinimumDuration(0);
+    progressDialog.setAutoClose(false);
+    progressDialog.setAutoReset(false);
     progressDialog.setValue(0);
+    progressDialog.show();
+
+    QApplication::processEvents();
 
     for (int index = 0; index < selectedFiles.size(); ++index) {
         const QString& filePath = selectedFiles[index];
@@ -424,7 +429,7 @@ int main(int argc, char* argv[])
             "\n\n" + fileInfo.fileName()
         );
 
-        progressDialog.setValue(index);
+        QApplication::processEvents();
 
         if (progressDialog.wasCanceled()) {
             canceled = true;
@@ -437,6 +442,9 @@ int main(int argc, char* argv[])
 
             report += "Skipped unsupported file:\n";
             report += filePath + "\n\n";
+
+            progressDialog.setValue(index + 1);
+            QApplication::processEvents();
 
             continue;
         }
@@ -464,9 +472,18 @@ int main(int argc, char* argv[])
             report += filePath + "\n";
             report += "Reason: " + QString::fromStdString(errorMessage) + "\n\n";
         }
+
+        progressDialog.setValue(index + 1);
+        QApplication::processEvents();
+
+        if (progressDialog.wasCanceled()) {
+            canceled = true;
+            report += "Conversion canceled by user.\n\n";
+            break;
+        }
     }
 
-    progressDialog.setValue(selectedFiles.size());
+    progressDialog.close();
 
     QString summary =
         QString(canceled ? "Conversion canceled.\n\n" : "Conversion complete.\n\n") +
